@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Eventsourcing Presentation</title>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="shower/themes/ribbon/styles/screen-16x10.css">
+</head>
+<body class="shower list">
+	<header class="caption">
+		<h1>Eventsourcing</h1>
+	</header>
+	<section class="slide" id="cover">
+		<center><img src="pictures/logo.png" width="80px" alt="Logo"></center>
+		<h2>Event Sourcing as a Database</h2>
+		<p><a href="http://eventsourcing.com">eventsourcing.com</a></p>
+
+		<!-- <img src="pictures/cover.jpg" alt="" class="cover"> -->
+		<style>
+			#cover h2 {
+				margin:30px 0 0;
+				/*color:#FFF;*/
+				text-align:center;
+				font-size:70px;
+				}
+			#cover p {
+				margin:10px 0 0;
+				text-align:center;
+				/*color:#FFF;*/
+				font-style:italic;
+				font-size:20px;
+				}
+				#cover p a {
+					/*color:#FFF;*/
+					}
+		</style>
+	</section>
+	<section class="slide">
+		<h2>Predicting future is hard</h2>
+		<ul>
+			<li>How should we model our domain?</li>
+			<li>What features will we need in the future?</li>
+			<li>How will our company pivot?</li>
+			<li>What database flavour will fit best?</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>The Schema Problem</h2>
+		<ul>
+			<li>Upfront ceremony for an unknown future</li>
+			<li>Schemaless is an implicitly defined, scattered schema</li>
+			<li>Information not captured is lost</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Proposed Solution</h2>
+		<p class="note">Live in the now</p>
+		<ul>
+			<li>Capture as much input data as possible</li>
+			<li>Persist the intent (command) and resulting changes (events)</li>
+			<li>Index persisted commands' and events' properties</li>
+			<li>Define ephemeral schemas through code</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Example: Login</h2>
+		<pre>
+			<code>class Login extends Command&lt;Optional&lt;User&gt;&gt; {</code>
+			<code>  <mark>String username, password;</mark> </code>
+			<code>  public Stream&lt;Event&gt; events(Repository repository) {</code>
+			<code>    user = User.authenticate(repository, user, password);</code>
+			<code class="mark">    if (user.isPresent()) {</code>
+			<code class="mark">        return Stream.of(new UserLoggedIn(user.get()));</code>
+		</pre>
+	</section>
+	<section class="slide">
+		<h2>Example: Login (continued)</h2>
+		<pre>
+			<code>class Login extends Command&lt;Optional&lt;User&gt;&gt; {</code>
+			<code>  public Stream&lt;Event&gt; events(Repository repository) {</code>
+			<code>    user = User.authenticate(repository, user, password);</code>
+			<code>    if (user.isPresent()) {</code>
+			<code>        return Stream.of(new UserLoggedIn(username));</code>
+			<code>    } else {</code>
+			<code class="mark">        return Stream.of(new UserFailedLoggingIn(username));</code>
+			<code>    }</code>
+		</pre>
+	</section>
+	<section class="slide">
+		<h2>Example: Login (continued)</h2>
+		<pre>
+			<code>class Login extends Command&lt;<mark>Optional&lt;User&gt;</mark>&gt; {</code>
+			<code>  public Optional&lt;User&gt; onCompletion() {</code>
+			<code class="mark">      return user;</code>
+			<code>  }</code>
+		</pre>
+	</section>
+	<section class="slide">
+		<h2>Example: What's being stored</h2>
+		<table>
+		<tr>
+			<th scope="col">Type</th>
+			<th>Name</th>
+			<th>Success</th>
+			<th>Failure</th>
+		</tr>
+		<tr>
+			<th scope="row">Command</th>
+			<td>Login</td>
+			<td>YES</td>
+			<td>YES</td>
+		</tr>
+		<tr>
+			<th scope="row">Event</th>
+			<td>UserLoggedIn</td>
+			<td>YES</td>
+			<td>NO</td>
+		</tr>
+		<tr>
+			<th scope="row">Event</th>
+			<td>UserFailedLoggingIn</td>
+			<td>NO</td>
+			<td>YES</td>
+		</tr>
+		</table>
+	</section>
+	<section class="slide">
+		<h2>Example: Model (simplified)</h2>
+		<pre>
+			<code>class User implements Model {</code>
+			<code>  User(Repository repository, UUID id) {...}</code>
+			<code>  String username() {</code>
+			<code>    return repository.query(UserCreated.class,</code>
+      <code>      equal(<mark>UserCreated.ID</mark>, id()))</code>
+			<code>    .uniqueResult().get().<mark>username()</mark>;</code>
+		</pre>
+	</section>
+	<section class="slide">
+		<h2>Example: Model (simplified, continued)</h2>
+		<pre>
+			<code>class User implements Model {</code>
+			<code>  static Optional&lt;User&gt; authenticate(String u, String p) {</code>
+			<code>    resultSet = repository.query(UserCreated.class,</code>
+			<code>     and(equal(<mark>UserCreated.USERNAME</mark>, u),</code>
+			<code>         equal(<mark>UserCreated.PASSWORD</mark>, p)))</code>
+			<code>    return resultSet.isEmpty() ? Optional.empty() : </code>
+			<code class="mark">    Optional.of(new User(repository, </code>
+			<code class="mark">                         resultSet.uniqueResult().uuid())));</code>
+		</pre>
+	</section>
+	<section class="slide">
+		<h2>Example: Locking Out Schema-Way</h2>
+		<pre>
+			<code>ALTER TABLE accounts ADD COLUMN</code>
+			<code>            locked_at TIMESTAMP;</code>
+		</pre>
+		<ol>
+			<li>Add locking out logic after failed login attempts</li>
+			<li>Set <code>locked_at</code> to <code>NULL</code> once logged in</li>
+		</ol>
+	</section>
+	<section class="slide">
+		<h2>Example: Locking Out Without Schema</h2>
+		<pre>
+			<code>class User implements Model {</code>
+			<code>  public isLocked() {</code>
+			<code>   return</code>
+			<code>   repository.query(UserFailedLoggingIn.class, </code>
+			<code>    and(equal(<mark>UserFailedLoggingIn.EMAIL</mark>, email()),</code>
+			<code>    greaterThan(<mark>UserFailedLoggingIn.TIMESTAMP</mark>, fiveMinsAgo)))</code>
+			<code>   .<mark>size() >= 10</mark>;</code>
+		</pre>
+	</section>
+	<section class="slide">
+		<h2>Community Building</h2>
+		<p class="note">Based on <a href="http://rfc.unprotocols.org/spec:1/C4/">C4</a> (Collaborative Code Construction Contract)</p>
+		<ul>
+			<li>A universal <b>right</b> to contribute</li>
+			<li>Removing gate-keeping value judgement</li>
+			<li>Problem/Solution-oriented development</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Community Building: Non-Profit Organization</h2>
+		<p class="note"><a href="https://github.com/eventsourcing/eventsourcing-inc">Eventsourcing, Inc.</a></p>
+		<ul>
+			<li>Open, membership-based organization</li>
+			<li>Funded case studies</li>
+			<li>Facilitating development</li>
+			<li>Recipient of non-profit offerings</li>
+		</ul>
+	</section>
+	<p class="badge">
+		<a href="https://github.com/eventsourcing">Fork me on GitHub</a>
+	</p>
+	<div class="progress"></div>
+	<script src="shower/shower.min.js"></script>
+</body>
+</html>
