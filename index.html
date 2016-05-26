@@ -164,7 +164,7 @@
 		<pre>
 			<code>class User implements Model {</code>
 			<code>  User(Repository repository, UUID id) {...}</code>
-			<code>  String username() {</code>
+			<code>  <mark>String username() {</mark></code>
 			<code>    return repository.query(UserCreated.class,</code>
       <code>      equal(<mark>UserCreated.ID</mark>, id()))</code>
 			<code>    .uniqueResult().get().<mark>username()</mark>;</code>
