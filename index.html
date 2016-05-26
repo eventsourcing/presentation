@@ -82,7 +82,7 @@
 			<li>Has 0..n properties</li>
 			<li>Produces a stream of events</li>
 			<li>Has a return value</li>
-			<li>Represents the scope of a transaction</li>
+			<li>Content-aware schema versioning</li>
 			<li>Can be indexed</li>
 		</ul>
 	</section>
@@ -93,6 +93,7 @@
 			<li>Statement of fact (as opposed to a command)</li>
 			<li>Naming: Past-principle (<code>UserRegistered</code>)</li>
 			<li>Has 0..n properties</li>
+			<li>Content-aware schema versioning</li>
 			<li>Can be indexed</li>
 		</ul>
 	</section>
@@ -392,7 +393,8 @@
 		<ul>
 			<li>Main API entry point</li>
 			<li>Responsible for keeping track of the commands &amp; events</li>
-			<li>Glues journals, indexing, and subscribers together</li>
+			<li>Glues journals, indexing and subscribers together</li>
+			<li>Provides a lock mechanism for commands</li>
 			<li>Uses <a href="https://lmax-exchange.github.io/disruptor/">LMAX Disruptor</a> to process commands</li>
 		</ul>
 	</section>
@@ -403,6 +405,8 @@
 			<li>Isolates command transaction scope</li>
 			<li>Generates exceptional command termination events</li>
 			<li>In-memory and H2 (MVStore) implementations available</li>
+			<li>Uses a  <a href="http://rfc.eventsourcing.com/spec:1/ELF">reasonably compact</a> <a href="http://rfc.eventsourcing.com/spec:2/BES">data representation layout</a></li>
+			<li>Other implementations can be plugged in</li>
 		</ul>
 	</section>
 	<section class="slide">
@@ -413,13 +417,14 @@
 			<li>Equality, Comparison, Substring, Inclusion, Quantization*</li>
 			<li>Computed indices</li>
 			<li>In-memory and H2 (MVStore)* implementations available</li>
+			<li>Other implementations can be plugged in</li>
 		</ul>
 	</section>
 	<section class="slide">
 		<h2>Model</h2>
 		<code>class User implements Model {}</code>
 		<ul>
-			<li>POJO that acts as an ephemeral microschema</li>
+			<li>Class that acts as an ephemeral microschema</li>
 			<li>[Tunably] lazy index querying (the laziest model only holds the ID)</li>
 			<li>Essentially, the read side to be used by UI</li>
 	</section>
