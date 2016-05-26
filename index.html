@@ -174,7 +174,7 @@
 		<h2>Example: Model (simplified, continued)</h2>
 		<pre>
 			<code>class User implements Model {</code>
-			<code>  static Optional&lt;User&gt; authenticate(String u, String p) {</code>
+			<code>  static Optional&lt;User&gt; <mark>authenticate(String u, String p)</mark> {</code>
 			<code>    resultSet = repository.query(UserCreated.class,</code>
 			<code>     and(equal(<mark>UserCreated.USERNAME</mark>, u),</code>
 			<code>         equal(<mark>UserCreated.PASSWORD</mark>, p)))</code>
