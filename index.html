@@ -6,6 +6,15 @@
 	<meta http-equiv="x-ua-compatible" content="ie=edge">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="shower/themes/ribbon/styles/screen-16x10.css">
+
+<link rel="stylesheet" type="text/css" href="/css/joint.min.css" />
+<link rel="stylesheet" type="text/css" href="/css/devs.css" />
+<script src="/js/jquery.min.js"></script>
+<script src="/js/lodash.min.js"></script>
+<script src="/js/backbone-min.js"></script>
+<script src="/js/joint.min.js"></script>
+<script src="/js/joint.shapes.devs.min.js"></script>
+
 </head>
 <body class="shower list">
 	<header class="caption">
@@ -47,6 +56,7 @@
 	</section>
 	<section class="slide">
 		<h2>The Schema Problem</h2>
+		<p class="note">(The source of endless debates)</p>
 		<ul>
 			<li>Upfront ceremony for an unknown future</li>
 			<li>Schemaless is an implicitly defined, scattered schema</li>
@@ -61,6 +71,29 @@
 			<li>Persist the intent (command) and resulting changes (events)</li>
 			<li>Index persisted commands' and events' properties</li>
 			<li>Define ephemeral schemas through code</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Command</h2>
+		<p class="note">Request for changes in the domain</p>
+		<ul>
+			<li>Captures the intent</li>
+			<li>Naming: Imperative mood (<code>RegisterUser</code>)</li>
+			<li>Has 0..n properties</li>
+			<li>Produces a stream of events</li>
+			<li>Has a return value</li>
+			<li>Represents the scope of a transaction</li>
+			<li>Can be indexed</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Event</h2>
+		<p class="note">A change in the domain</p>
+		<ul>
+			<li>Statement of fact (as opposed to a command)</li>
+			<li>Naming: Past-principle (<code>UserRegistered</code>)</li>
+			<li>Has 0..n properties</li>
+			<li>Can be indexed</li>
 		</ul>
 	</section>
 	<section class="slide">
@@ -173,6 +206,245 @@
 		</pre>
 	</section>
 	<section class="slide">
+		<h2>How does this work?</h2>
+		<div id="workflow"></div>
+		<script type="text/javascript">
+		var graph = new joint.dia.Graph();
+
+		var paper = new joint.dia.Paper({
+			el: $('#workflow'),
+			width: 1000,
+			height: 420,
+			gridSize: 1,
+			model: graph,
+			snapLinks: true,
+			linkPinning: true,
+			embeddingMode: false,
+			// interactive: false,
+			validateEmbedding: function(childView, parentView) {
+					return parentView.model instanceof joint.shapes.devs.Coupled;
+			},
+			validateConnection: function(sourceView, sourceMagnet, targetView, targetMagnet) {
+					return sourceMagnet != targetMagnet;
+			}
+		});
+		var connect = function(source, sourcePort, target, targetPort) {
+		    var link = new joint.shapes.devs.Link({
+					  router: { name: 'manhattan' },
+						connector: { name: 'rounded' },
+		        source: { id: source.id, selector: source.getPortSelector(sourcePort) },
+		        target: { id: target.id, selector: target.getPortSelector(targetPort) },
+						attrs: {
+							'.marker-target': {
+								  opacity: 0.3,
+			        		fill: '#4B4F6A',
+					        d: 'M 10 0 L 0 5 L 10 10 z'
+			        }
+						}
+		    });
+		    link.addTo(graph).reparent();
+		};
+
+		var es = new joint.shapes.devs.Coupled({
+				attrs: {
+					'.label': { text: 'Eventsourcing' }
+				},
+		    position: { x: 150, y: 100 },
+		    size: { width: 700, height: 300 },
+		    inPorts: ['command'],
+		    outPorts: ['query']
+		});
+
+		var repo = new joint.shapes.devs.Atomic({
+				attrs: {
+					'.label': { text: 'Repository' }
+				},
+		    position: { x: 200, y: 140 },
+				size: { width: 100 },
+		    inPorts: ['command'],
+		    outPorts: ['command']
+		});
+
+		var journal = new joint.shapes.devs.Atomic({
+				attrs: {
+					'.label': { text: 'Journal' }
+				},
+		    position: { x: 400, y: 140 },
+				size: { width: 100 },
+		    inPorts: ['command'],
+		    outPorts: ['command', 'events']
+		});
+
+		var index = new joint.shapes.devs.Atomic({
+				attrs: {
+					'.label': { text: 'Index' }
+				},
+		    position: { x: 680, y: 140 },
+				size: { width: 100 },
+		    inPorts: ['command', 'events'],
+				outPorts: ['query']
+		});
+
+		var subscribers = new joint.shapes.devs.Atomic({
+				attrs: {
+					'.label': { text: 'Subscribers' }
+				},
+				position: { x: 440, y: 280 },
+				size: { width: 140 },
+				inPorts: ['command', 'events']
+		});
+
+		var models = new joint.shapes.devs.Atomic({
+				attrs: {
+					'.label': { text: 'Models' }
+				},
+		    position: { x: 680, y: 280 },
+				size: { width: 100 },
+		    inPorts: ['query'],
+				outPorts: ['query']
+		});
+
+		var ui = new joint.shapes.devs.Atomic({
+				attrs: {
+					'.label': { text: 'UI' }
+				},
+		    position: { x: 10, y: 10 },
+				size: { height: 40},
+		    outPorts: ['intent', 'query'],
+		});
+
+		graph.addCells([es, repo, journal, ui, index, models, subscribers]);
+
+		es.embed(repo);
+		es.embed(journal);
+		es.embed(index);
+		es.embed(models);
+		es.embed(subscribers);
+
+		connect(ui,'intent',es,'command');
+		connect(ui,'query',es,'query');
+		connect(es,'command',repo,'command');
+		connect(repo,'command',journal,'command');
+		connect(journal,'command',index,'command');
+		connect(journal,'events',index,'events');
+		connect(journal,'command',subscribers,'command');
+		connect(journal,'events',subscribers,'events');
+		connect(models,'query',index,'query');
+		connect(es,'query',models,'query');
+
+		/* rounded corners */
+
+		_.each([ui, es, repo, journal, index, models, subscribers], function(element) {
+		    element.attr({ '.body': { 'rx': 6, 'ry': 6 }});
+		});
+
+		/* custom highlighting */
+
+		var highlighter = V('circle', {
+		    'r': 14,
+		    'stroke': '#ff7e5d',
+		    'stroke-width': '6px',
+		    'fill': 'transparent',
+		    'pointer-events': 'none'
+		});
+
+		paper.off('cell:highlight cell:unhighlight').on({
+
+		    'cell:highlight': function(cellView, el, opt) {
+
+		        if (opt.embedding) {
+		            V(el).addClass('highlighted-parent');
+		        }
+
+		        if (opt.connecting) {
+		            var bbox = V(el).bbox(false, paper.viewport);
+		            highlighter.translate(bbox.x + 10, bbox.y + 10, { absolute: true });
+		            V(paper.viewport).append(highlighter);
+		        }
+		    },
+
+		    'cell:unhighlight': function(cellView, el, opt) {
+
+		        if (opt.embedding) {
+		            V(el).removeClass('highlighted-parent');
+		        }
+
+		        if (opt.connecting) {
+		            highlighter.remove();
+		        }
+		    }
+		});
+
+		</script>
+	</section>
+	<section class="slide">
+		<h2>Hybrid Logical Clocks</h2>
+		<p class="note">As described in this <a href="http://www.cse.buffalo.edu/tech-reports/2014-04.pdf">paper</a></p>
+		<ul>
+			<li>Global snapshots without coordination</li>
+			<li>Backwards compatible with NTP</li>
+			<li>Self-stabilizing, tolerates nonmonotonous time updates</li>
+			<li>Used to timestamp every command and event</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Repository</h2>
+		<ul>
+			<li>Main API entry point</li>
+			<li>Responsible for keeping track of the commands &amp; events</li>
+			<li>Glues journals, indexing, and subscribers together</li>
+			<li>Uses <a href="https://lmax-exchange.github.io/disruptor/">LMAX Disruptor</a> to process commands</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Journal</h2>
+		<ul>
+			<li>Persists command and produced events</li>
+			<li>Isolates command transaction scope</li>
+			<li>Generates exceptional command termination events</li>
+			<li>In-memory and H2 (MVStore) implementations available</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Indexing Engine</h2>
+		<ul>
+			<li>Persists command &amp; event indices annotated with <code>@Index</code></li>
+			<li>Built upon <a href="https://github.com/npgall/cqengine">CQEngine</a>, low-latency indexing engine</li>
+			<li>Equality, Comparison, Substring, Inclusion, Quantization*</li>
+			<li>Computed indices</li>
+			<li>In-memory and H2 (MVStore)* implementations available</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>Model</h2>
+		<code>class User implements Model {}</code>
+		<ul>
+			<li>POJO that acts as an ephemeral microschema</li>
+			<li>[Tunably] lazy index querying (the laziest model only holds the ID)</li>
+			<li>Essentially, the read side to be used by UI</li>
+	</section>
+	<section class="slide">
+		<h2>Domain Protocols</h2>
+		<ul>
+			<li>Polymorphic events</li>
+			<li>By convention, <code>UserRegistered</code> and <code>PageCreated</code> IDs are model IDs</li>
+			<li>If we want to set/change user password, we need <code>PasswordChanged(reference=user.id, password=...)</code></li>
+			<li>If we want to password-protect the page, we need <code>PasswordChanged(reference=page.id, password=...)</code></li>
+		  <li>We can share querying by defining a <a href="http://es4j-doc.eventsourcing.com/core_concepts/domain_protocol.html">domain protocol interface</a>
+				<br />
+				<code>interface PasswordProtocol extends Protocol</code>
+			</li>
+		</ul>
+	</section>
+	<section class="slide">
+		<h2>It's a Polyglot World</h2>
+		<ul>
+			<li>Java implementation (es4j) is only the beginning</li>
+			<li>RFC effort is underway <a href="http://rfc.eventsourcing.com">rfc.eventsourcing.com</a></li>
+			<li>Server API for es4j is being considered</li>
+		</ul>
+	</section>
+	<section class="slide">
 		<h2>Community Building</h2>
 		<p class="note">Based on <a href="http://rfc.unprotocols.org/spec:1/C4/">C4</a> (Collaborative Code Construction Contract)</p>
 		<ul>
@@ -190,6 +462,32 @@
 			<li>Facilitating development</li>
 			<li>Recipient of non-profit offerings</li>
 		</ul>
+	</section>
+	<section class="slide" id="final">
+		<center><img src="pictures/logo.png" width="80px" alt="Logo"></center>
+		<h2>Eventsourcing</h2>
+		<p>Learn more at</p>
+		<p><a href="http://eventsourcing.com">eventsourcing.com</a></p>
+
+		<!-- <img src="pictures/cover.jpg" alt="" class="cover"> -->
+		<style>
+			#final h2 {
+				margin:30px 0 0;
+				/*color:#FFF;*/
+				text-align:center;
+				font-size:70px;
+				}
+			#final p {
+				margin:10px 0 0;
+				text-align:center;
+				/*color:#FFF;*/
+				font-style:italic;
+				font-size:20px;
+				}
+				#cover p a {
+					/*color:#FFF;*/
+					}
+		</style>
 	</section>
 	<p class="badge">
 		<a href="https://github.com/eventsourcing">Fork me on GitHub</a>
