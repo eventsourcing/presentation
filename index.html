@@ -100,32 +100,35 @@
 	<section class="slide">
 		<h2>Example: Login</h2>
 		<pre>
-			<code>class Login extends Command&lt;Optional&lt;User&gt;&gt; {</code>
+			<code>class Login extends</code>
+			<code> StandardCommand&lt;Optional&lt;User&gt;, Optional&lt;User&gt;&gt; {</code>
 			<code>  <mark>String username, password;</mark> </code>
-			<code>  public Stream&lt;Event&gt; events(Repository repository) {</code>
-			<code>    user = User.authenticate(repository, user, password);</code>
-			<code class="mark">    if (user.isPresent()) {</code>
-			<code class="mark">        return Stream.of(new UserLoggedIn(user.get()));</code>
+			<code>  public EventStream&lt;~&gt; events(Repository repository) {</code>
+			<code>   u = User.authenticate(repository, username, password);</code>
+			<code class="mark">   if (u.isPresent()) {</code>
+			<code class="mark">      return EventStream.of(u, new LoggedIn(username);</code>
 		</pre>
 	</section>
 	<section class="slide">
 		<h2>Example: Login (continued)</h2>
 		<pre>
-			<code>class Login extends Command&lt;Optional&lt;User&gt;&gt; {</code>
-			<code>  public Stream&lt;Event&gt; events(Repository repository) {</code>
-			<code>    user = User.authenticate(repository, user, password);</code>
-			<code>    if (user.isPresent()) {</code>
-			<code>        return Stream.of(new UserLoggedIn(username));</code>
-			<code>    } else {</code>
-			<code class="mark">        return Stream.of(new UserFailedLoggingIn(username));</code>
-			<code>    }</code>
+			<code>class Login extends</code>
+			<code> StandardCommand&lt;Optional&lt;User&gt;, Optional&lt;User&gt;&gt; {</code>
+			<code>  public EventStream&lt;~&gt; events(Repository repository) {</code>
+			<code>   u = User.authenticate(repository, username, password);</code>
+			<code>   if (u.isPresent()) {</code>
+			<code>    return EventStream.of(u, new LoggedIn(username));</code>
+			<code>   } else {</code>
+			<code class="mark">    return EventStream.of(u, new FailedLoggingIn(username));</code>
+			<code>   }</code>
 		</pre>
 	</section>
 	<section class="slide">
 		<h2>Example: Login (continued)</h2>
 		<pre>
-			<code>class Login extends Command&lt;<mark>Optional&lt;User&gt;</mark>&gt; {</code>
-			<code>  public Optional&lt;User&gt; onCompletion() {</code>
+			<code>class Login extends</code>
+			<code> StandardCommand&lt;Optional&lt;User&gt;, <mark>Optional&lt;User&gt;</mark>&gt; {</code>
+			<code>  public Optional&lt;User&gt; result(Optional&lt;User&gt; user) {</code>
 			<code class="mark">      return user;</code>
 			<code>  }</code>
 		</pre>
@@ -147,13 +150,13 @@
 		</tr>
 		<tr>
 			<th scope="row">Event</th>
-			<td>UserLoggedIn</td>
+			<td>LoggedIn</td>
 			<td>YES</td>
 			<td>NO</td>
 		</tr>
 		<tr>
 			<th scope="row">Event</th>
-			<td>UserFailedLoggingIn</td>
+			<td>FailedLoggingIn</td>
 			<td>NO</td>
 			<td>YES</td>
 		</tr>
@@ -166,7 +169,7 @@
 			<code>  User(Repository repository, UUID id) {...}</code>
 			<code>  <mark>String username() {</mark></code>
 			<code>    return repository.query(UserCreated.class,</code>
-      <code>      equal(<mark>UserCreated.ID</mark>, id()))</code>
+      <code>      equal(<mark>UserCreated.ID</mark>, getId()))</code>
 			<code>    .uniqueResult().get().<mark>username()</mark>;</code>
 		</pre>
 	</section>
@@ -404,7 +407,7 @@
 			<li>Persists command and produced events</li>
 			<li>Isolates command transaction scope</li>
 			<li>Generates exceptional command termination events</li>
-			<li>In-memory and H2 (MVStore) implementations available</li>
+			<li>In-memory, PostgreSQL and H2 (MVStore) implementations available</li>
 			<li>Uses a  <a href="http://rfc.eventsourcing.com/spec:1/ELF">reasonably compact</a> <a href="http://rfc.eventsourcing.com/spec:2/BES">data representation layout</a></li>
 			<li>Other implementations can be plugged in</li>
 		</ul>
@@ -416,7 +419,7 @@
 			<li>Built upon <a href="https://github.com/npgall/cqengine">CQEngine</a>, low-latency indexing engine</li>
 			<li>Equality, Comparison, Substring, Inclusion, Quantization*</li>
 			<li>Computed indices</li>
-			<li>In-memory and H2 (MVStore)* implementations available</li>
+			<li>In-memory, PostgreSQL and H2 (MVStore)* implementations available</li>
 			<li>Other implementations can be plugged in</li>
 		</ul>
 	</section>
